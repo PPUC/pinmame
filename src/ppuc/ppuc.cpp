@@ -15,6 +15,7 @@
 #include "Event.h"
 #include "../libpinmame/libpinmame.h"
 #include "pin2dmd/pin2dmd.h"
+#include "zedmd/zedmd.h"
 #include "serialib/serialib.h"
 #include "cargs/cargs.h"
 
@@ -37,6 +38,9 @@ UINT8 msg[6] = {0};
 UINT8 cmsg[11] = {0};
 // Serial object
 serialib serial;
+
+int pin2dmd = 0;
+int zedmd = 0;
 
 YAML::Node ppuc_config;
 
@@ -134,7 +138,14 @@ void CALLBACK OnDisplayUpdated(int index, void* p_displayData, PinmameDisplayLay
 		p_displayLayout->length);
 
 	if ((p_displayLayout->type & DMD) == DMD) {
-        Pin2dmdRender(p_displayLayout->width, p_displayLayout->height, (UINT8 *) p_displayData, p_displayLayout->depth, PinmameGetHardwareGen() & (SAM | SPA));
+        if (pin2dmd > 0) {
+            Pin2dmdRender(p_displayLayout->width, p_displayLayout->height, (UINT8 *) p_displayData,
+                          p_displayLayout->depth, PinmameGetHardwareGen() & (SAM | SPA));
+        }
+        if (zedmd > 0) {
+            ZeDmdRender(p_displayLayout->width, p_displayLayout->height, (UINT8 *) p_displayData,
+                          p_displayLayout->depth, PinmameGetHardwareGen() & (SAM | SPA));
+        }
 	}
 	else {
         // todo
@@ -351,6 +362,12 @@ int main (int argc, char *argv[]) {
         }
     }
 
+    // Initialize displays.
+    pin2dmd = Pin2dmdInit();
+    if (opt_debug) printf("PIN2DMD: %d\n", pin2dmd);
+    zedmd = ZeDmdInit();
+    if (opt_debug) printf("ZeDMD: %d\n", zedmd);
+
     if (!config_file) {
         printf("No config file provided. Use option -c /path/to/config/file.\n");
         return -1;
@@ -425,10 +442,6 @@ int main (int argc, char *argv[]) {
     alcMakeContextCurrent(context);
     alGenSources((ALuint) 1, &_audioSource);
     alGenBuffers(MAX_AUDIO_BUFFERS, _audioBuffers);
-
-    // Initialize displays.
-    int pin2dmd = Pin2dmdInit();
-    if (opt_debug) printf("PIN2DMD: %d\n", pin2dmd);
 
     PinmameConfig config = {
             AUDIO_FORMAT_INT16,

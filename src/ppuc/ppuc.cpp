@@ -300,7 +300,7 @@ void sendEvent(ConfigEvent* event) {
     cmsg[9] = event->value & 0xff;
     //      = (UINT8) 255;
 
-    if (serial.writeBytes(msg, 11)) {
+    if (serial.writeBytes(cmsg, 11)) {
         if (opt_debug) printf("Sent config event %d %d %d.\n", event->boardId, event->topic, event->key);
     }
     else {

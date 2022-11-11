@@ -48,7 +48,7 @@ int Pin2dmdInit() {
         }
     }
     else {
-        return -99;
+        return 0;
     }
 
     libusb_free_device_list(devs, 1);
@@ -56,7 +56,7 @@ int Pin2dmdInit() {
     if (MyLibusbDeviceHandle == NULL) {
         libusb_close(MyLibusbDeviceHandle);
         libusb_exit(ctx);
-        return -99;
+        return 0;
     }
 
     ret = libusb_get_string_descriptor_ascii(MyLibusbDeviceHandle, desc.iProduct, product, 256);
@@ -66,7 +66,7 @@ int Pin2dmdInit() {
         //Closes a device opened since the claim interface is failed.
         libusb_close(MyLibusbDeviceHandle);
         libusb_exit(ctx);
-        return -99;
+        return 0;
     }
 
     string = (const char*)product;

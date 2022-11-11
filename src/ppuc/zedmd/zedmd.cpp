@@ -22,7 +22,7 @@ int ZeDmdInit() {
     // The ESP32 will answer {0x5a, 0x65, 0x64, 0x72, width_low, width_high, height_low, height_high}.
     // Width (=width_low+width_high * 256) and height (=height_low+height_high * 256) are the
     // dimensions of the LED panel (128 * 32 or 256 * 64).
-    UINT8 shakeHands[7] = {0x5a, 0x65, 0x64, 0x72, 0x75, 0x6d, 12};
+    UINT8 handshake[7] = {0x5a, 0x65, 0x64, 0x72, 0x75, 0x6d, 12};
     UINT8 acknowledge[8] = {0};
 
     for (int i = 1; i < 99; i++) {
@@ -32,34 +32,41 @@ int ZeDmdInit() {
         sprintf(device_name, "\\\\.\\COM%d", i);
 #elif defined (__linux__)
         // Prepare the port name (Linux).
-        sprintf(device_name, "/dev/ttyACM%d", i - 1);
+        sprintf(device_name, "/dev/ttyUSB%d", i - 1);
 #else
         // Prepare the port name (macOS).
         sprintf(device_name, "/dev/cu.usbserial-%04d", i);
 #endif
+
         // Try to connect to the device.
         if (device.openDevice(device_name, 921600) == 1) {
-            device.clearDTR();
+            // printf("Device %s\n", device_name);
 
-            printf("SH hex %x\n", shakeHands[0]);
-            printf("SH hex %x\n", shakeHands[1]);
-            printf("SH hex %x\n", shakeHands[2]);
-            printf("SH hex %x\n", shakeHands[3]);
-            printf("SH hex %x\n", shakeHands[4]);
-            printf("SH hex %x\n", shakeHands[5]);
-            printf("SH dec %d\n", shakeHands[6]);
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
-            if (device.writeBytes(shakeHands, 7)) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(500));
-                if (device.readBytes(acknowledge, 8, 100)) {
-                    printf("Ack hex %x\n", acknowledge[0]);
-                    printf("Ack hex %x\n", acknowledge[1]);
-                    printf("Ack hex %x\n", acknowledge[2]);
-                    printf("Ack hex %x\n", acknowledge[3]);
-                    printf("Ack hex %x\n", acknowledge[4]);
-                    printf("Ack hex %x\n", acknowledge[5]);
-                    printf("Ack hex %x\n", acknowledge[6]);
-                    printf("Ack hex %x\n", acknowledge[7]);
+            // Reset the device.
+            device.clearDTR();
+            device.setRTS();
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            device.clearRTS();
+            device.clearDTR();
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+            // The ESP32 sends some information about itself first. That needs to be removed before handshake.
+            while (device.available() > 0) {
+                device.flushReceiver();
+                // @todo avoid endless loop in case of a different device that sends permanently.
+            }
+
+            if (device.writeBytes(handshake, 7) == 1) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                if (device.readBytes(acknowledge, 8, 1000)) {
+                    printf("Ack hex %d\n", acknowledge[0]);
+                    printf("Ack hex %d\n", acknowledge[1]);
+                    printf("Ack hex %d\n", acknowledge[2]);
+                    printf("Ack hex %d\n", acknowledge[3]);
+                    printf("Ack hex %d\n", acknowledge[4]);
+                    printf("Ack hex %d\n", acknowledge[5]);
+                    printf("Ack hex %d\n", acknowledge[6]);
+                    printf("Ack hex %d\n", acknowledge[7]);
                     if (
                             acknowledge[0] == 0x5a &&
                             acknowledge[1] == 0x65 &&
@@ -73,7 +80,6 @@ int ZeDmdInit() {
                             return 1;
                         }
                     }
-                    std::this_thread::sleep_for(std::chrono::milliseconds(9000));
                 }
             }
             // Close the device before testing the next port.

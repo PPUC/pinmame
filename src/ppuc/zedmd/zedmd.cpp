@@ -40,7 +40,7 @@ int ZeDmdInit() {
 
         // Try to connect to the device.
         if (device.openDevice(device_name, 921600) == 1) {
-            // printf("Device %s\n", device_name);
+            //printf("Device %s\n", device_name);
 
             // Reset the device.
             device.clearDTR();
@@ -52,31 +52,25 @@ int ZeDmdInit() {
 
             // The ESP32 sends some information about itself first. That needs to be removed before handshake.
             while (device.available() > 0) {
-                device.flushReceiver();
+                device.readBytes(acknowledge, 8, 100);
                 // @todo avoid endless loop in case of a different device that sends permanently.
             }
 
-            if (device.writeBytes(handshake, 7) == 1) {
+            if (device.writeBytes(handshake, 7)) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 if (device.readBytes(acknowledge, 8, 1000)) {
-                    printf("Ack hex %d\n", acknowledge[0]);
-                    printf("Ack hex %d\n", acknowledge[1]);
-                    printf("Ack hex %d\n", acknowledge[2]);
-                    printf("Ack hex %d\n", acknowledge[3]);
-                    printf("Ack hex %d\n", acknowledge[4]);
-                    printf("Ack hex %d\n", acknowledge[5]);
-                    printf("Ack hex %d\n", acknowledge[6]);
-                    printf("Ack hex %d\n", acknowledge[7]);
                     if (
                             acknowledge[0] == 0x5a &&
                             acknowledge[1] == 0x65 &&
                             acknowledge[2] == 0x64 &&
                             acknowledge[3] == 0x72
-                            ) {
+                    ) {
                         deviceWidth = acknowledge[4] + acknowledge[5] * 256;
                         deviceHeight = acknowledge[6] + acknowledge[7] * 256;
 
                         if (deviceWidth > 0 && deviceHeight > 0) {
+                            //printf("Width  %d\n", deviceWidth);
+                            //printf("Height %d\n", deviceHeight);
                             return 1;
                         }
                     }

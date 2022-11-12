@@ -100,12 +100,15 @@ void ZeDmdRender(UINT16 width, UINT16 height, UINT8* Buffer, int bitDepth, bool 
         int outputBufferIndex = 4;
         int frameSizeInByte = width * height / 8;
         int bitShift = 0;
+        int bufferSize = outputBufferIndex + (frameSizeInByte  * bitDepth);
 
         deviceOutputBuffer[0] = 0x72;
         deviceOutputBuffer[1] = 0x64;
         deviceOutputBuffer[2] = 0x65;
         deviceOutputBuffer[3] = 0x5a;
         if (bitDepth == 2) {
+            bufferSize += 12;
+
             deviceOutputBuffer[4] = 8;
             // Palette
             deviceOutputBuffer[5] = 75;
@@ -122,6 +125,8 @@ void ZeDmdRender(UINT16 width, UINT16 height, UINT8* Buffer, int bitDepth, bool 
             deviceOutputBuffer[16] = 0;
             outputBufferIndex = 17;
         } else {
+            bufferSize += 48;
+
             deviceOutputBuffer[4] = 9;
             // Palette
             deviceOutputBuffer[5] = 255;
@@ -299,6 +304,6 @@ void ZeDmdRender(UINT16 width, UINT16 height, UINT8* Buffer, int bitDepth, bool 
             }
         }
 
-        device.writeBytes(deviceOutputBuffer, outputBufferIndex);
+        device.writeBytes(deviceOutputBuffer, bufferSize);
     }
 }

@@ -288,6 +288,7 @@ void sendEvent(Event* event) {
 }
 
 void sendEvent(ConfigEvent* event) {
+    return;
     //      = (UINT8) 255;
     cmsg[1] = event->sourceId;
     cmsg[2] = event->boardId;
@@ -362,12 +363,6 @@ int main (int argc, char *argv[]) {
         }
     }
 
-    // Initialize displays.
-    pin2dmd = Pin2dmdInit();
-    if (opt_debug) printf("PIN2DMD: %d\n", pin2dmd);
-    zedmd = ZeDmdInit();
-    if (opt_debug) printf("ZeDMD: %d\n", zedmd);
-
     if (!config_file) {
         printf("No config file provided. Use option -c /path/to/config/file.\n");
         return -1;
@@ -383,6 +378,12 @@ int main (int argc, char *argv[]) {
 
     std::string c_serial = ppuc_config["serialPort"].as<std::string>();
     if (!opt_serial) opt_serial = c_serial.c_str();
+
+    // Initialize displays.
+    pin2dmd = Pin2dmdInit();
+    if (opt_debug) printf("PIN2DMD: %d\n", pin2dmd);
+    zedmd = ZeDmdInit(opt_serial);
+    if (opt_debug) printf("ZeDMD: %d\n", zedmd);
 
     // Connection to serial port.
     char errorOpening = serial.openDevice(opt_serial, 115200);

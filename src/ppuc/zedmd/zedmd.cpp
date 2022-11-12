@@ -14,7 +14,7 @@ UINT16 deviceHeight = 0;
 UINT8 deviceOutputBuffer[8245] = {};
 char planeBytes[4] = {0};
 
-int ZeDmdInit() {
+int ZeDmdInit(const char* ignore_device) {
     static int ret = 0;
     char device_name[22];
 
@@ -37,6 +37,10 @@ int ZeDmdInit() {
         // Prepare the port name (macOS).
         sprintf(device_name, "/dev/cu.usbserial-%04d", i);
 #endif
+
+        if (strcmp(device_name, ignore_device) == 0) {
+            continue;
+        }
 
         // Try to connect to the device.
         if (device.openDevice(device_name, 921600) == 1) {
@@ -104,17 +108,17 @@ void ZeDmdRender(UINT16 width, UINT16 height, UINT8* Buffer, int bitDepth, bool 
         if (bitDepth == 2) {
             deviceOutputBuffer[4] = 8;
             // Palette
-            deviceOutputBuffer[5] = 255;
-            deviceOutputBuffer[6] = 127;
+            deviceOutputBuffer[5] = 75;
+            deviceOutputBuffer[6] = 0;
             deviceOutputBuffer[7] = 0;
-            deviceOutputBuffer[8] = 192;
-            deviceOutputBuffer[9] = 76;
+            deviceOutputBuffer[8] = 144;
+            deviceOutputBuffer[9] = 34;
             deviceOutputBuffer[10] = 0;
-            deviceOutputBuffer[11] = 144;
-            deviceOutputBuffer[12] = 34;
+            deviceOutputBuffer[11] = 192;
+            deviceOutputBuffer[12] = 76;
             deviceOutputBuffer[13] = 0;
-            deviceOutputBuffer[14] = 75;
-            deviceOutputBuffer[15] = 0;
+            deviceOutputBuffer[14] = 255;
+            deviceOutputBuffer[15] = 127;
             deviceOutputBuffer[16] = 0;
             outputBufferIndex = 17;
         } else {

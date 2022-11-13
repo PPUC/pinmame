@@ -11,7 +11,7 @@ serialib device;
 UINT16 deviceWidth = 0;
 UINT16 deviceHeight = 0;
 
-UINT8 deviceOutputBuffer[8245] = {};
+UINT8 deviceOutputBuffer[65536] = {};
 char planeBytes[4] = {0};
 
 int ZeDmdInit(const char* ignore_device) {
@@ -61,7 +61,7 @@ int ZeDmdInit(const char* ignore_device) {
             }
 
             if (device.writeBytes(handshake, 7)) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                //std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 if (device.readBytes(acknowledge, 8, 1000)) {
                     if (
                             acknowledge[0] == 0x5a &&
@@ -90,22 +90,25 @@ int ZeDmdInit(const char* ignore_device) {
 
 void ZeDmdRender(UINT16 width, UINT16 height, UINT8* Buffer, int bitDepth, bool samSpa) {
     if (width <= deviceWidth && height <= deviceHeight) {
-        // To send a 4-color frame, send {0x72, 0x64, 0x65, 0x5a, 8} followed by 3 * 4 bytes for the palette (R, G, B)
-        // followed by 2 planes of width * height / 8 bytes for the frame. It is possible to send a colored palette or
-        // standard colors (orange (255,127,0) gradient).
-        // To send a 16-color frame, send {0x72, 0x64, 0x65, 0x5a, 9} followed by 3 * 16 bytes for the palette (R, G, B)
-        // followed by 4 planes of width * height / 8 bytes for the frame. Once again, if you want to use the standard
-        // colors, send (orange (255,127,0) gradient).
+        // To send a 4-color frame, send {0x5a, 0x65, 0x64, 0x72, 0x75, 0x6d, 8} followed by 3 * 4 bytes for the palette
+        // (R, G, B) followed by 2 planes of width * height / 8 bytes for the frame. It is possible to send a colored
+        // palette or standard colors (orange (255,127,0) gradient).
+        // To send a 16-color frame, send {0x5a, 0x65, 0x64, 0x72, 0x75, 0x6d, 9} followed by 3 * 16 bytes for the
+        // palette (R, G, B) followed by 4 planes of width * height / 8 bytes for the frame. Once again, if you want to
+        // use the standard colors, send (orange (255,127,0) gradient).
 
-        int outputBufferIndex = 4;
+        int outputBufferIndex = 7;
         int frameSizeInByte = width * height / 8;
         int bitShift = 0;
         int bufferSize = outputBufferIndex + (frameSizeInByte  * bitDepth);
 
-        deviceOutputBuffer[0] = 0x72;
-        deviceOutputBuffer[1] = 0x64;
-        deviceOutputBuffer[2] = 0x65;
-        deviceOutputBuffer[3] = 0x5a;
+        deviceOutputBuffer[0] = 0x5a;
+        deviceOutputBuffer[1] = 0x65;
+        deviceOutputBuffer[2] = 0x64;
+        deviceOutputBuffer[3] = 0x72;
+        deviceOutputBuffer[4] = 0x75;
+        deviceOutputBuffer[5] = 0x6d;
+
         if (bitDepth == 2) {
             bufferSize += 12;
 

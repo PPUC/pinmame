@@ -97,10 +97,9 @@ void ZeDmdRender(UINT16 width, UINT16 height, UINT8* Buffer, int bitDepth, bool 
         // palette (R, G, B) followed by 4 planes of width * height / 8 bytes for the frame. Once again, if you want to
         // use the standard colors, send (orange (255,127,0) gradient).
 
-        int outputBufferIndex = 7;
+        int outputBufferIndex = 0;
         int frameSizeInByte = width * height / 8;
         int bitShift = 0;
-        int bufferSize = outputBufferIndex + (frameSizeInByte  * bitDepth);
 
         deviceOutputBuffer[0] = 0x5a;
         deviceOutputBuffer[1] = 0x65;
@@ -110,33 +109,33 @@ void ZeDmdRender(UINT16 width, UINT16 height, UINT8* Buffer, int bitDepth, bool 
         deviceOutputBuffer[5] = 0x6d;
 
         if (bitDepth == 2) {
-            bufferSize += 12;
-
-            deviceOutputBuffer[4] = 8;
+            deviceOutputBuffer[6] = 8;
             // Palette
-            deviceOutputBuffer[5] = 75;
-            deviceOutputBuffer[6] = 0;
-            deviceOutputBuffer[7] = 0;
-            deviceOutputBuffer[8] = 144;
-            deviceOutputBuffer[9] = 34;
-            deviceOutputBuffer[10] = 0;
-            deviceOutputBuffer[11] = 192;
-            deviceOutputBuffer[12] = 76;
-            deviceOutputBuffer[13] = 0;
-            deviceOutputBuffer[14] = 255;
-            deviceOutputBuffer[15] = 127;
-            deviceOutputBuffer[16] = 0;
-            outputBufferIndex = 17;
+            deviceOutputBuffer[7] = 75;
+            deviceOutputBuffer[8] = 0;
+            deviceOutputBuffer[9] = 0;
+            deviceOutputBuffer[10] = 144;
+            deviceOutputBuffer[11] = 34;
+            deviceOutputBuffer[12] = 0;
+            deviceOutputBuffer[13] = 192;
+            deviceOutputBuffer[14] = 76;
+            deviceOutputBuffer[15] = 0;
+            deviceOutputBuffer[16] = 255;
+            deviceOutputBuffer[17] = 127;
+            deviceOutputBuffer[18] = 0;
+
+            outputBufferIndex = 19;
         } else {
-            bufferSize += 48;
-
-            deviceOutputBuffer[4] = 9;
+            deviceOutputBuffer[6] = 9;
             // Palette
-            deviceOutputBuffer[5] = 255;
-            deviceOutputBuffer[6] = 127;
-            deviceOutputBuffer[7] = 0;
-            outputBufferIndex = 53;
+            deviceOutputBuffer[7] = 255;
+            deviceOutputBuffer[8] = 127;
+            deviceOutputBuffer[9] = 0;
+            
+            outputBufferIndex = 55;
         }
+
+        int bufferSize = (frameSizeInByte  * bitDepth) + outputBufferIndex;
 
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {

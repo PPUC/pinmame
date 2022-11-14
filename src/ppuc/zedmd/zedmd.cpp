@@ -306,6 +306,13 @@ void ZeDmdRender(UINT16 width, UINT16 height, UINT8* Buffer, int bitDepth, bool 
             }
         }
 
-        device.writeBytes(deviceOutputBuffer, bufferSize);
+        // Don't send the entire buffer at once. There seem to be timing or buffer issues with the CP210x driver.
+        // Sending smaller chunks and a waiting in between seems to work.
+        int chunk = 0;
+        while (chunk < bufferSize) {
+            device.writeBytes(&deviceOutputBuffer[chunk], ((bufferSize - chunk) > 256) ? 256 : (bufferSize - chunk));
+            chunk += 256;
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        }
     }
 }

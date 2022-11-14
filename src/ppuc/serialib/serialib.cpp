@@ -458,7 +458,7 @@ int serialib::writeString(const char *receivedString)
      \param Buffer : array of bytes to send on the port
      \param NbBytes : number of byte to send
      \return 1 success
-     \return -1 error while writting data
+     \return -1 error while writing data
   */
 int serialib::writeBytes(const void *Buffer, const unsigned int NbBytes)
 {

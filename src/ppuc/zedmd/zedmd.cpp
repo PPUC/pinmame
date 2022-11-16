@@ -111,7 +111,7 @@ void ZeDmdRender(UINT16 width, UINT16 height, UINT8* Buffer, int bitDepth, bool 
         if (bitDepth == 2) {
             deviceOutputBuffer[6] = 8;
             // Palette
-            deviceOutputBuffer[7] = 75;
+            deviceOutputBuffer[7] = 0;
             deviceOutputBuffer[8] = 0;
             deviceOutputBuffer[9] = 0;
             deviceOutputBuffer[10] = 144;
@@ -312,7 +312,7 @@ void ZeDmdRender(UINT16 width, UINT16 height, UINT8* Buffer, int bitDepth, bool 
         while (chunk < bufferSize) {
             device.writeBytes(&deviceOutputBuffer[chunk], ((bufferSize - chunk) > 256) ? 256 : (bufferSize - chunk));
             chunk += 256;
-            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+            std::this_thread::sleep_for(std::chrono::milliseconds(8));
         }
     }
 }

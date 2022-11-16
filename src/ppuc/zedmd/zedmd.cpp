@@ -111,7 +111,7 @@ void ZeDmdRender(UINT16 width, UINT16 height, UINT8* Buffer, int bitDepth, bool 
         if (bitDepth == 2) {
             deviceOutputBuffer[6] = 8;
             // Palette
-            deviceOutputBuffer[7] = 75;
+            deviceOutputBuffer[7] = 0;
             deviceOutputBuffer[8] = 0;
             deviceOutputBuffer[9] = 0;
             deviceOutputBuffer[10] = 144;

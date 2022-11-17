@@ -11,8 +11,12 @@ serialib device;
 UINT16 deviceWidth = 0;
 UINT16 deviceHeight = 0;
 
-UINT8 deviceOutputBuffer[65536] = {};
-char planeBytes[4] = {0};
+UINT8 ZeDMDControlCharacters[6] = {0x5a, 0x65, 0x64, 0x72, 0x75, 0x6d};
+UINT8 ZeDMDDefaultPalette2Bit[12] = { 0, 0, 0, 144, 34, 0, 192, 76, 0, 255, 127 ,0 };
+UINT8 ZeDMDDefaultPalette4Bit[48] = { 0, 0, 0, 51, 25, 0, 64, 32, 0, 77, 38, 0,
+                                    89, 44, 0, 102, 51, 0, 115, 57, 0, 128, 64, 0,
+                                    140, 70, 0, 153, 76, 0, 166, 83, 0, 179, 89, 0,
+                                    191, 95, 0, 204, 102, 0, 230, 114, 0, 255, 127, 0 };
 
 int ZeDmdInit(const char* ignore_device) {
     static int ret = 0;
@@ -64,10 +68,10 @@ int ZeDmdInit(const char* ignore_device) {
                 //std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 if (device.readBytes(acknowledge, 8, 1000)) {
                     if (
-                            acknowledge[0] == 0x5a &&
-                            acknowledge[1] == 0x65 &&
-                            acknowledge[2] == 0x64 &&
-                            acknowledge[3] == 0x72
+                            acknowledge[0] == ZeDMDControlCharacters[0] &&
+                            acknowledge[1] == ZeDMDControlCharacters[1] &&
+                            acknowledge[2] == ZeDMDControlCharacters[2] &&
+                            acknowledge[3] == ZeDMDControlCharacters[3]
                     ) {
                         deviceWidth = acknowledge[4] + acknowledge[5] * 256;
                         deviceHeight = acknowledge[6] + acknowledge[7] * 256;
@@ -96,227 +100,38 @@ void ZeDmdRender(UINT16 width, UINT16 height, UINT8* Buffer, int bitDepth, bool 
         // To send a 16-color frame, send {0x5a, 0x65, 0x64, 0x72, 0x75, 0x6d, 9} followed by 3 * 16 bytes for the
         // palette (R, G, B) followed by 4 planes of width * height / 8 bytes for the frame. Once again, if you want to
         // use the standard colors, send (orange (255,127,0) gradient).
-
-        int outputBufferIndex = 0;
-        int frameSizeInByte = width * height / 8;
-        int bitShift = 0;
-
-        deviceOutputBuffer[0] = 0x5a;
-        deviceOutputBuffer[1] = 0x65;
-        deviceOutputBuffer[2] = 0x64;
-        deviceOutputBuffer[3] = 0x72;
-        deviceOutputBuffer[4] = 0x75;
-        deviceOutputBuffer[5] = 0x6d;
-
-        if (bitDepth == 2) {
-            deviceOutputBuffer[6] = 8;
-            // Palette
-            deviceOutputBuffer[7] = 0;
-            deviceOutputBuffer[8] = 0;
-            deviceOutputBuffer[9] = 0;
-            deviceOutputBuffer[10] = 144;
-            deviceOutputBuffer[11] = 34;
-            deviceOutputBuffer[12] = 0;
-            deviceOutputBuffer[13] = 192;
-            deviceOutputBuffer[14] = 76;
-            deviceOutputBuffer[15] = 0;
-            deviceOutputBuffer[16] = 255;
-            deviceOutputBuffer[17] = 127;
-            deviceOutputBuffer[18] = 0;
-
-            outputBufferIndex = 19;
-        } else {
-            deviceOutputBuffer[6] = 9;
-            // Palette
-            deviceOutputBuffer[7] = 255;
-            deviceOutputBuffer[8] = 127;
-            deviceOutputBuffer[9] = 0;
-            
-            outputBufferIndex = 55;
-        }
-
-        int bufferSize = (frameSizeInByte  * bitDepth) + outputBufferIndex;
-
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                if (bitDepth == 2) {
-                    switch (Buffer[y * width + x]) {
-                        case 0x14: // 20%
-                            //Activate if you want to have the entire Display to glow, a kind of background color.
-                            //byte0 |= (1 << bitShift);
-                            break;
-                        case 0x21: // 33%
-                            planeBytes[0] |= (1 << bitShift);
-                            break;
-                        case 0x43: // 67%
-                            planeBytes[1] |= (1 << bitShift);
-                            break;
-                        case 0x64: // 100%
-                            planeBytes[0] |= (1 << bitShift);
-                            planeBytes[1] |= (1 << bitShift);
-                            break;
-                    }
-                } else if (bitDepth == 4) {
-                    if (samSpa) {
-                        switch(Buffer[y * width + x]) {
-                            case 0x00:
-                                break;
-                            case 0x14:
-                                planeBytes[0] |= (1 << bitShift);
-                                break;
-                            case 0x19:
-                                planeBytes[1] |= (1 << bitShift);
-                                break;
-                            case 0x1E:
-                                planeBytes[0] |= (1 << bitShift);
-                                planeBytes[1] |= (1 << bitShift);
-                                break;
-                            case 0x23:
-                                planeBytes[2] |= (1 << bitShift);
-                                break;
-                            case 0x28:
-                                planeBytes[0] |= (1 << bitShift);
-                                planeBytes[2] |= (1 << bitShift);
-                                break;
-                            case 0x2D:
-                                planeBytes[1] |= (1 << bitShift);
-                                planeBytes[2] |= (1 << bitShift);
-                                break;
-                            case 0x32:
-                                planeBytes[0] |= (1 << bitShift);
-                                planeBytes[1] |= (1 << bitShift);
-                                planeBytes[2] |= (1 << bitShift);
-                                break;
-                            case 0x37:
-                                planeBytes[3] |= (1 << bitShift);
-                                break;
-                            case 0x3C:
-                                planeBytes[0] |= (1 << bitShift);
-                                planeBytes[3] |= (1 << bitShift);
-                                break;
-                            case 0x41:
-                                planeBytes[1] |= (1 << bitShift);
-                                planeBytes[3] |= (1 << bitShift);
-                                break;
-                            case 0x46:
-                                planeBytes[0] |= (1 << bitShift);
-                                planeBytes[1] |= (1 << bitShift);
-                                planeBytes[3] |= (1 << bitShift);
-                                break;
-                            case 0x4B:
-                                planeBytes[2] |= (1 << bitShift);
-                                planeBytes[3] |= (1 << bitShift);
-                                break;
-                            case 0x50:
-                                planeBytes[0] |= (1 << bitShift);
-                                planeBytes[2] |= (1 << bitShift);
-                                planeBytes[3] |= (1 << bitShift);
-                                break;
-                            case 0x5A:
-                                planeBytes[1] |= (1 << bitShift);
-                                planeBytes[2] |= (1 << bitShift);
-                                planeBytes[3] |= (1 << bitShift);
-                                break;
-                            case 0x64:
-                                planeBytes[0] |= (1 << bitShift);
-                                planeBytes[1] |= (1 << bitShift);
-                                planeBytes[2] |= (1 << bitShift);
-                                planeBytes[3] |= (1 << bitShift);
-                                break;
-                        }
-                    } else {
-                        switch (Buffer[y * width + x]) {
-                            case 0x00:
-                                break;
-                            case 0x1E:
-                                planeBytes[0] |= (1 << bitShift);
-                                break;
-                            case 0x23:
-                                planeBytes[1] |= (1 << bitShift);
-                                break;
-                            case 0x28:
-                                planeBytes[0] |= (1 << bitShift);
-                                planeBytes[1] |= (1 << bitShift);
-                                break;
-                            case 0x2D:
-                                planeBytes[2] |= (1 << bitShift);
-                                break;
-                            case 0x32:
-                                planeBytes[0] |= (1 << bitShift);
-                                planeBytes[2] |= (1 << bitShift);
-                                break;
-                            case 0x37:
-                                planeBytes[1] |= (1 << bitShift);
-                                planeBytes[2] |= (1 << bitShift);
-                                break;
-                            case 0x3C:
-                                planeBytes[0] |= (1 << bitShift);
-                                planeBytes[1] |= (1 << bitShift);
-                                planeBytes[2] |= (1 << bitShift);
-                                break;
-                            case 0x41:
-                                planeBytes[3] |= (1 << bitShift);
-                                break;
-                            case 0x46:
-                                planeBytes[0] |= (1 << bitShift);
-                                planeBytes[3] |= (1 << bitShift);
-                                break;
-                            case 0x4B:
-                                planeBytes[1] |= (1 << bitShift);
-                                planeBytes[3] |= (1 << bitShift);
-                                break;
-                            case 0x50:
-                                planeBytes[0] |= (1 << bitShift);
-                                planeBytes[1] |= (1 << bitShift);
-                                planeBytes[3] |= (1 << bitShift);
-                                break;
-                            case 0x55:
-                                planeBytes[2] |= (1 << bitShift);
-                                planeBytes[3] |= (1 << bitShift);
-                                break;
-                            case 0x5A:
-                                planeBytes[0] |= (1 << bitShift);
-                                planeBytes[2] |= (1 << bitShift);
-                                planeBytes[3] |= (1 << bitShift);
-                                break;
-                            case 0x5F:
-                                planeBytes[1] |= (1 << bitShift);
-                                planeBytes[2] |= (1 << bitShift);
-                                planeBytes[3] |= (1 << bitShift);
-                                break;
-                            case 0x64:
-                                planeBytes[0] |= (1 << bitShift);
-                                planeBytes[1] |= (1 << bitShift);
-                                planeBytes[2] |= (1 << bitShift);
-                                planeBytes[3] |= (1 << bitShift);
-                                break;
-                        }
-                    }
-                }
-
-                bitShift++;
-                if (bitShift > 7) {
-                    bitShift = 0;
-                    for (int i = 0; i < bitDepth; i++) {
-                        deviceOutputBuffer[(frameSizeInByte * i) + outputBufferIndex] = planeBytes[i];
-                        planeBytes[i] = 0;
-                    }
-                    outputBufferIndex++;
-                }
-            }
-        }
-
+        //
         // Don't send the entire buffer at once. To avoid timing or buffer issues with the CP210x driver we send chunks
-        // of 256 bytes. In between we wait for a (R)eady signal from ZeDMD that indicates that the entire chunk was
-        // received.
+        // of 256 bytes. First we wait for a (R)eady signal from ZeDMD. In between the chunks we wait for an
+        // (A)cknowledge signal that indicates that the entire chunk has been received. The (E)rror signal is ignored.
+        // We don't have time to re-start the transmission from the beginning. Instead, we skip this frame and let
+        // libpinmame provide the next frame as usual.
         char response = 0;
         if (device.readChar(&response, 100) && response == 'R') {
-            int chunk = 0;
-            while (chunk < bufferSize) {
-                device.writeBytes(&deviceOutputBuffer[chunk],((bufferSize - chunk) > 256) ? 256 : (bufferSize - chunk));
+            device.writeBytes(ZeDMDControlCharacters, 6);
+
+            int bytesSent = 0;
+            if (bitDepth == 2) {
+                // Command byte.
+                device.writeChar(8);
+                device.writeBytes(ZeDMDDefaultPalette2Bit, 12);
+                bytesSent = 19;
+            } else {
+                // Command byte.
+                device.writeChar(9);
+                device.writeBytes(ZeDMDDefaultPalette4Bit, 48);
+                bytesSent = 57;
+            }
+
+            int totalBytes = (width * height / 8 * bitDepth) + bytesSent;
+            int chunk = 256 - bytesSent;
+            int bufferPosition = 0;
+            while (bufferPosition < totalBytes) {
+                device.writeBytes(&Buffer[bufferPosition], ((totalBytes - bufferPosition) < chunk) ? (totalBytes - bufferPosition) : chunk);
                 if (device.readChar(&response, 100) && response == 'A') {
-                    // Ready to send the next chunk.
-                    chunk += 256;
+                    // Received (A)cknowledge, ready to send the next chunk.
+                    bufferPosition += chunk;
+                    chunk = 256;
                 } else {
                     // Something went wrong. Terminate current transmission of the buffer and return.
                     return;

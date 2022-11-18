@@ -1,10 +1,6 @@
-#include <stdio.h>
-#include <chrono>
-#include <thread>
-
 #include "dmd.h"
 
-UINT8 DmdRenderBuffer[65536] = {0};
+UINT8 DmdRenderBuffer[2048] = {0};
 
 void* dmdRender(UINT16 width, UINT16 height, UINT8* Buffer, int bitDepth, bool samSpa) {
     int renderBufferIndex = 0;

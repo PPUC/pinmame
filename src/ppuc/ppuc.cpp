@@ -139,15 +139,23 @@ void CALLBACK OnDisplayUpdated(int index, void* p_displayData, PinmameDisplayLay
 		p_displayLayout->length);
 
 	if ((p_displayLayout->type & DMD) == DMD) {
-        UINT8* buffer = (UINT8 *) dmdRender(p_displayLayout->width, p_displayLayout->height, (UINT8 *) p_displayData,
-                  p_displayLayout->depth, PinmameGetHardwareGen() & (SAM | SPA));
+        UINT8* buffer = (UINT8 *) dmdRender(p_displayLayout->width, p_displayLayout->height,
+                    (UINT8 *) p_displayData,p_displayLayout->depth,
+                   PinmameGetHardwareGen() & (SAM | SPA));
+
+        std::vector<std::thread> threads;
+
         if (pin2dmd > 0) {
-            Pin2dmdRender(p_displayLayout->width, p_displayLayout->height, buffer,
-                          p_displayLayout->depth, PinmameGetHardwareGen() & (SAM | SPA));
+            threads.push_back(std::thread(Pin2dmdRender, p_displayLayout->width, p_displayLayout->height, buffer,
+                          p_displayLayout->depth, PinmameGetHardwareGen() & (SAM | SPA)));
         }
         if (zedmd > 0) {
-            ZeDmdRender(p_displayLayout->width, p_displayLayout->height, buffer,
-                        p_displayLayout->depth, PinmameGetHardwareGen() & (SAM | SPA));
+            threads.push_back(std::thread(ZeDmdRender, p_displayLayout->width, p_displayLayout->height, buffer,
+                                          p_displayLayout->depth, PinmameGetHardwareGen() & (SAM | SPA)));
+        }
+
+        for (auto &th : threads) {
+            th.join();
         }
 	}
 	else {

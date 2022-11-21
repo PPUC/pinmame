@@ -120,7 +120,7 @@ void ZeDmdRender(UINT16 width, UINT16 height, UINT8* Buffer, int bitDepth, bool 
                 // Command byte.
                 device.writeChar(9);
                 device.writeBytes(ZeDMDDefaultPalette4Bit, 48);
-                bytesSent = 57;
+                bytesSent = 55;
             }
 
             int totalBytes = (width * height / 8 * bitDepth) + bytesSent;

@@ -67,6 +67,10 @@ jobs:
 #          curl -sL -H "Authorization: Token ${{ secrets.GH_PAT }}" https://api.github.com/repos/upx/upx/actions/artifacts/${{ env.UPX_ARTIFACT }}/zip -o upx.zip
 #          7z x upx.zip -oupx
 #          rm upx.zip
+#      - run: |
+#          curl -L https://github.com/upx/upx/releases/download/v4.0.1/upx-4.0.1-win64.zip -o upx.zip
+#          7z e upx.zip -oupx
+#          rm upx.zip
       - name: Build VPinMAME${{ matrix.artifact-suffix }}-${{ matrix.platform }}
         run: |
           cp cmake/vpinmame/CMakeLists_${{ matrix.platform }}.txt CMakeLists.txt

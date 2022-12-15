@@ -227,6 +227,7 @@ int CALLBACK OnAudioUpdated(void* p_buffer, int samples) {
 
 void CALLBACK OnSolenoidUpdated(int solenoid, int isActive) {
     if (opt_debug) printf("OnSolenoidUpdated: solenoid=%d, isActive=%d\n", solenoid, isActive);
+    sendEvent(new Event(EVENT_SOURCE_SOLENOID, (UINT16) solenoid, (UINT8) isActive));
 }
 
 void CALLBACK OnMechAvailable(int mechNo, PinmameMechInfo* p_mechInfo) {
@@ -392,24 +393,101 @@ int main (int argc, char *argv[]) {
         }
     }
 
+    // Send switch configuration to I/O boards
     const YAML::Node& switches = ppuc_config["switches"];
-    UINT8 index = 0;
     for (YAML::Node n_switch : switches) {
-        // Send switch configuration to I/O boards
-        sendEvent(new ConfigEvent(
-                n_switch["board"].as<UINT8>(),
-                (UINT8) CONFIG_TOPIC_SWITCHES,
-                index,
-                (UINT8) CONFIG_TOPIC_SWITCHES_NUMBER,
-                n_switch["number"].as<UINT32>()
-                ));
+        UINT8 index = 0;
         sendEvent(new ConfigEvent(
                 n_switch["board"].as<UINT8>(),
                 (UINT8) CONFIG_TOPIC_SWITCHES,
                 index++,
-                (UINT8) CONFIG_TOPIC_SWITCHES_PORT,
+                (UINT8) CONFIG_TOPIC_PORT,
                 n_switch["port"].as<UINT32>()
+        ));
+        sendEvent(new ConfigEvent(
+                n_switch["board"].as<UINT8>(),
+                (UINT8) CONFIG_TOPIC_SWITCHES,
+                index++,
+                (UINT8) CONFIG_TOPIC_NUMBER,
+                n_switch["number"].as<UINT32>()
                 ));
+    }
+
+    // Send PWM configuration to I/O boards
+    const YAML::Node& pwmOutput = ppuc_config["pwmOutput"];
+    for (YAML::Node n_pwmOutput : pwmOutput) {
+        UINT8 index = 0;
+        sendEvent(new ConfigEvent(
+                n_pwmOutput["board"].as<UINT8>(),
+                (UINT8) CONFIG_TOPIC_PWM,
+                index++,
+                (UINT8) CONFIG_TOPIC_PORT,
+                n_pwmOutput["port"].as<UINT32>()
+        ));
+        sendEvent(new ConfigEvent(
+                n_pwmOutput["board"].as<UINT8>(),
+                (UINT8) CONFIG_TOPIC_PWM,
+                index++,
+                (UINT8) CONFIG_TOPIC_NUMBER,
+                n_pwmOutput["number"].as<UINT32>()
+        ));
+        sendEvent(new ConfigEvent(
+                n_pwmOutput["board"].as<UINT8>(),
+                (UINT8) CONFIG_TOPIC_PWM,
+                index++,
+                (UINT8) CONFIG_TOPIC_POWER,
+                n_pwmOutput["power"].as<UINT32>()
+        ));
+        sendEvent(new ConfigEvent(
+                n_pwmOutput["board"].as<UINT8>(),
+                (UINT8) CONFIG_TOPIC_PWM,
+                index++,
+                (UINT8) CONFIG_TOPIC_MIN_PULSE_TIME,
+                n_pwmOutput["minPulseTime"].as<UINT32>()
+        ));
+        sendEvent(new ConfigEvent(
+                n_pwmOutput["board"].as<UINT8>(),
+                (UINT8) CONFIG_TOPIC_PWM,
+                index++,
+                (UINT8) CONFIG_TOPIC_MAX_PULSE_TIME,
+                n_pwmOutput["maxPulseTime"].as<UINT32>()
+        ));
+        sendEvent(new ConfigEvent(
+                n_pwmOutput["board"].as<UINT8>(),
+                (UINT8) CONFIG_TOPIC_PWM,
+                index++,
+                (UINT8) CONFIG_TOPIC_HOLD_POWER,
+                n_pwmOutput["holdPower"].as<UINT32>()
+        ));
+        sendEvent(new ConfigEvent(
+                n_pwmOutput["board"].as<UINT8>(),
+                (UINT8) CONFIG_TOPIC_PWM,
+                index++,
+                (UINT8) CONFIG_TOPIC_HOLD_POWER_ACTIVATION_TIME,
+                n_pwmOutput["holdPowerActivationTime"].as<UINT32>()
+        ));
+        sendEvent(new ConfigEvent(
+                n_pwmOutput["board"].as<UINT8>(),
+                (UINT8) CONFIG_TOPIC_PWM,
+                index++,
+                (UINT8) CONFIG_TOPIC_FAST_SWITCH,
+                n_pwmOutput["fastFlipSwitch"].as<UINT32>()
+        ));
+        std::string c_type = n_pwmOutput["type"].as<std::string>();
+        UINT32 type = 1; // "coil"
+        if (strcmp(c_type, "flasher")) {
+            type = 2;
+        }
+        else if (strcmp(c_type, "lamp")) {
+            type = 3;
+        }
+        sendEvent(new ConfigEvent(
+                n_pwmOutput["board"].as<UINT8>(),
+                (UINT8) CONFIG_TOPIC_PWM,
+                index++,
+                (UINT8) CONFIG_TOPIC_TYPE,
+                type
+        ));
     }
 
     // Wait before continuing.

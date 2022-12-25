@@ -85,69 +85,132 @@ static struct cag_option options[] = {
     }
 };
 
+
+void sendEvent(Event* event) {
+    //     = (UINT8) 255;
+    msg[1] = event->sourceId;
+    msg[2] = event->eventId >> 8;
+    msg[3] = event->eventId & 0xff;
+    msg[4] = event->value;
+    //     = (UINT8) 255;
+
+    if (serial.writeBytes(msg, 6)) {
+        if (opt_debug) printf("Sent event %d %d %d.\n", event->sourceId, event->eventId, event->value);
+    }
+    else {
+        printf("Error: Could not send event %d %d %d.\n", event->sourceId, event->eventId, event->value);
+    }
+
+    // delete the event and free the memory
+    delete event;
+}
+
+void sendEvent(ConfigEvent* event) {
+    //      = (UINT8) 255;
+    cmsg[1] = event->sourceId;
+    cmsg[2] = event->boardId;
+    cmsg[3] = event->topic;
+    cmsg[4] = event->key;
+    cmsg[5] = event->index;
+    cmsg[6] = event->value >> 24;
+    cmsg[7] = (event->value >> 16) & 0xff;
+    cmsg[8] = (event->value >> 8) & 0xff;
+    cmsg[9] = event->value & 0xff;
+    //      = (UINT8) 255;
+
+    if (serial.writeBytes(cmsg, 11)) {
+        if (opt_debug) printf("Sent config event %d %d %d.\n", event->boardId, event->topic, event->key);
+    }
+    else {
+        printf("Error: Could not send event %d %d %d.\n", event->boardId, event->topic, event->key);
+    }
+
+    // delete the event and free the memory
+    delete event;
+}
+
+Event* receiveEvent() {
+    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+
+    // Set a timeout of 1ms when waiting for an I/O board event.
+    while ((std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start)).count() < 1000) {
+        if (serial.available() >= 6) {
+            UINT8 poll[6] = {0};
+            if (serial.readBytes(poll, 6)) {
+                if (poll[0] == 255 && poll[5] == 255) {
+                    return new Event(poll[1], (((UINT16) poll[2]) << 8) + poll[3], poll[4]);
+                }
+            }
+            return NULL;
+        }
+    }
+
+    return NULL;
+}
+
 void CALLBACK Game(PinmameGame* game) {
-	printf("Game(): name=%s, description=%s, manufacturer=%s, year=%s, flags=%lu, found=%d\n",
-		game->name, game->description, game->manufacturer, game->year, (unsigned long)game->flags, game->found);
+    printf("Game(): name=%s, description=%s, manufacturer=%s, year=%s, flags=%lu, found=%d\n",
+           game->name, game->description, game->manufacturer, game->year, (unsigned long)game->flags, game->found);
 }
 
 void CALLBACK OnStateUpdated(int state) {
-	if (opt_debug) printf("OnStateUpdated(): state=%d\n", state);
+    if (opt_debug) printf("OnStateUpdated(): state=%d\n", state);
 
-	if (!state) {
-		exit(1);
-	}
-	else {
-		PinmameMechConfig mechConfig;
-		memset(&mechConfig, 0, sizeof(mechConfig));
+    if (!state) {
+        exit(1);
+    }
+    else {
+        PinmameMechConfig mechConfig;
+        memset(&mechConfig, 0, sizeof(mechConfig));
 
-		mechConfig.sol1 = 11;
-		mechConfig.length = 240;
-		mechConfig.steps = 240;
-		mechConfig.type = NONLINEAR | REVERSE | ONESOL;
-		mechConfig.sw[0].swNo = 32;
-		mechConfig.sw[0].startPos = 0;
-		mechConfig.sw[0].endPos = 5;
+        mechConfig.sol1 = 11;
+        mechConfig.length = 240;
+        mechConfig.steps = 240;
+        mechConfig.type = NONLINEAR | REVERSE | ONESOL;
+        mechConfig.sw[0].swNo = 32;
+        mechConfig.sw[0].startPos = 0;
+        mechConfig.sw[0].endPos = 5;
 
-		PinmameSetMech(0, &mechConfig);
+        PinmameSetMech(0, &mechConfig);
 
         game_state = state;
-	}
+    }
 }
 
 void CALLBACK OnDisplayAvailable(int index, int displayCount, PinmameDisplayLayout* p_displayLayout) {
     if (opt_debug) printf("OnDisplayAvailable(): index=%d, displayCount=%d, type=%d, top=%d, left=%d, width=%d, height=%d, depth=%d, length=%d\n",
-		index,
-		displayCount,
-		p_displayLayout->type,
-		p_displayLayout->top,
-		p_displayLayout->left,
-		p_displayLayout->width,
-		p_displayLayout->height,
-		p_displayLayout->depth,
-		p_displayLayout->length);
+                          index,
+                          displayCount,
+                          p_displayLayout->type,
+                          p_displayLayout->top,
+                          p_displayLayout->left,
+                          p_displayLayout->width,
+                          p_displayLayout->height,
+                          p_displayLayout->depth,
+                          p_displayLayout->length);
 }
 
 void CALLBACK OnDisplayUpdated(int index, void* p_displayData, PinmameDisplayLayout* p_displayLayout) {
     if (opt_debug) printf("OnDisplayUpdated(): index=%d, type=%d, top=%d, left=%d, width=%d, height=%d, depth=%d, length=%d\n",
-		index,
-		p_displayLayout->type,
-		p_displayLayout->top,
-		p_displayLayout->left,
-		p_displayLayout->width,
-		p_displayLayout->height,
-		p_displayLayout->depth,
-		p_displayLayout->length);
+                          index,
+                          p_displayLayout->type,
+                          p_displayLayout->top,
+                          p_displayLayout->left,
+                          p_displayLayout->width,
+                          p_displayLayout->height,
+                          p_displayLayout->depth,
+                          p_displayLayout->length);
 
-	if ((p_displayLayout->type & DMD) == DMD) {
+    if ((p_displayLayout->type & DMD) == DMD) {
         UINT8* buffer = (UINT8 *) dmdRender(p_displayLayout->width, p_displayLayout->height,
-                    (UINT8 *) p_displayData,p_displayLayout->depth,
-                   PinmameGetHardwareGen() & (SAM | SPA));
+                                            (UINT8 *) p_displayData,p_displayLayout->depth,
+                                            PinmameGetHardwareGen() & (SAM | SPA));
 
         std::vector<std::thread> threads;
 
         if (pin2dmd > 0) {
             threads.push_back(std::thread(Pin2dmdRender, p_displayLayout->width, p_displayLayout->height, buffer,
-                          p_displayLayout->depth, PinmameGetHardwareGen() & (SAM | SPA)));
+                                          p_displayLayout->depth, PinmameGetHardwareGen() & (SAM | SPA)));
         }
         if (zedmd > 0) {
             threads.push_back(std::thread(ZeDmdRender, p_displayLayout->width, p_displayLayout->height, buffer,
@@ -157,21 +220,21 @@ void CALLBACK OnDisplayUpdated(int index, void* p_displayData, PinmameDisplayLay
         for (auto &th : threads) {
             th.join();
         }
-	}
-	else {
+    }
+    else {
         // todo
-		//DumpAlphanumeric(index, (UINT16*)p_displayData, p_displayLayout);
-	}
+        //DumpAlphanumeric(index, (UINT16*)p_displayData, p_displayLayout);
+    }
 }
 
 int CALLBACK OnAudioAvailable(PinmameAudioInfo* p_audioInfo) {
     if (opt_debug) printf("OnAudioAvailable(): format=%d, channels=%d, sampleRate=%.2f, framesPerSecond=%.2f, samplesPerFrame=%d, bufferSize=%d\n",
-		p_audioInfo->format,
-		p_audioInfo->channels,
-		p_audioInfo->sampleRate,
-		p_audioInfo->framesPerSecond,
-		p_audioInfo->samplesPerFrame,
-		p_audioInfo->bufferSize);
+                          p_audioInfo->format,
+                          p_audioInfo->channels,
+                          p_audioInfo->sampleRate,
+                          p_audioInfo->framesPerSecond,
+                          p_audioInfo->samplesPerFrame,
+                          p_audioInfo->bufferSize);
 
     _audioChannels = p_audioInfo->channels;
     _audioSampleRate = (int) p_audioInfo->sampleRate;
@@ -190,7 +253,7 @@ int CALLBACK OnAudioAvailable(PinmameAudioInfo* p_audioInfo) {
     alSourceQueueBuffers(_audioSource, MAX_AUDIO_BUFFERS, _audioBuffers);
     alSourcePlay(_audioSource);
 
-	return p_audioInfo->samplesPerFrame;
+    return p_audioInfo->samplesPerFrame;
 }
 
 int CALLBACK OnAudioUpdated(void* p_buffer, int samples) {
@@ -254,22 +317,22 @@ void CALLBACK OnSolenoidUpdated(int solenoid, int isActive) {
 
 void CALLBACK OnMechAvailable(int mechNo, PinmameMechInfo* p_mechInfo) {
     if (opt_debug) printf("OnMechAvailable: mechNo=%d, type=%d, length=%d, steps=%d, pos=%d, speed=%d\n",
-		mechNo,
-		p_mechInfo->type,
-		p_mechInfo->length,
-		p_mechInfo->steps,
-		p_mechInfo->pos,
-		p_mechInfo->speed);
+                          mechNo,
+                          p_mechInfo->type,
+                          p_mechInfo->length,
+                          p_mechInfo->steps,
+                          p_mechInfo->pos,
+                          p_mechInfo->speed);
 }
 
 void CALLBACK OnMechUpdated(int mechNo, PinmameMechInfo* p_mechInfo) {
     if (opt_debug) printf("OnMechUpdated: mechNo=%d, type=%d, length=%d, steps=%d, pos=%d, speed=%d\n",
-		mechNo,
-		p_mechInfo->type,
-		p_mechInfo->length,
-		p_mechInfo->steps,
-		p_mechInfo->pos,
-		p_mechInfo->speed);
+                          mechNo,
+                          p_mechInfo->type,
+                          p_mechInfo->length,
+                          p_mechInfo->steps,
+                          p_mechInfo->pos,
+                          p_mechInfo->speed);
 }
 
 void CALLBACK OnConsoleDataUpdated(void* p_data, int size) {
@@ -277,70 +340,7 @@ void CALLBACK OnConsoleDataUpdated(void* p_data, int size) {
 }
 
 int CALLBACK IsKeyPressed(PINMAME_KEYCODE keycode) {
-	return 0;
-}
-
-void sendEvent(Event* event) {
-    //     = (UINT8) 255;
-    msg[1] = event->sourceId;
-    msg[2] = event->eventId >> 8;
-    msg[3] = event->eventId & 0xff;
-    msg[4] = event->value;
-    //     = (UINT8) 255;
-
-    if (serial.writeBytes(msg, 6)) {
-        if (opt_debug) printf("Sent event %d %d %d.\n", event->sourceId, event->eventId, event->value);
-    }
-    else {
-        printf("Error: Could not send event %d %d %d.\n", event->sourceId, event->eventId, event->value);
-    }
-
-    // delete the event and free the memory
-    delete event;
-}
-
-void sendEvent(ConfigEvent* event) {
-    return;
-    //      = (UINT8) 255;
-    cmsg[1] = event->sourceId;
-    cmsg[2] = event->boardId;
-    cmsg[3] = event->topic;
-    cmsg[4] = event->key;
-    cmsg[5] = event->index;
-    cmsg[6] = event->value >> 24;
-    cmsg[7] = (event->value >> 16) & 0xff;
-    cmsg[8] = (event->value >> 8) & 0xff;
-    cmsg[9] = event->value & 0xff;
-    //      = (UINT8) 255;
-
-    if (serial.writeBytes(cmsg, 11)) {
-        if (opt_debug) printf("Sent config event %d %d %d.\n", event->boardId, event->topic, event->key);
-    }
-    else {
-        printf("Error: Could not send event %d %d %d.\n", event->boardId, event->topic, event->key);
-    }
-
-    // delete the event and free the memory
-    delete event;
-}
-
-Event* receiveEvent() {
-    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-
-    // Set a timeout of 1ms when waiting for an I/O board event.
-    while ((std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start)).count() < 1000) {
-        if (serial.available() >= 6) {
-            UINT8 poll[6] = {0};
-            if (serial.readBytes(poll, 6)) {
-                if (poll[0] == 255 && poll[5] == 255) {
-                    return new Event(poll[1], (((UINT16) poll[2]) << 8) + poll[3], poll[4]);
-                }
-            }
-            return NULL;
-        }
-    }
-
-    return NULL;
+    return 0;
 }
 
 int main (int argc, char *argv[]) {
@@ -504,10 +504,10 @@ int main (int argc, char *argv[]) {
         ));
         std::string c_type = n_pwmOutput["type"].as<std::string>();
         UINT32 type = 1; // "coil"
-        if (strcmp(c_type, "flasher")) {
+        if (strcmp(c_type.c_str(), "flasher")) {
             type = 2;
         }
-        else if (strcmp(c_type, "lamp")) {
+        else if (strcmp(c_type.c_str(), "lamp")) {
             type = 3;
         }
         sendEvent(new ConfigEvent(

@@ -45,7 +45,7 @@ int ZeDmdInit(const char* ignore_device) {
         if (strcmp(device_name, ignore_device) == 0) {
             continue;
         }
-
+        printf("Result %d\n", device.openDevice(device_name, 921600));
         // Try to connect to the device.
         if (device.openDevice(device_name, 921600) == 1) {
             //printf("Device %s\n", device_name);
@@ -137,6 +137,42 @@ void ZeDmdRender(UINT16 width, UINT16 height, UINT8* Buffer, int bitDepth, bool 
                     return;
                 }
             }
+        }
+    }
+}
+
+void ZeDmdRenderSerum(UINT16 width, UINT16 height, UINT8* Buffer, int bitDepth, UINT8* palette, UINT8* rotation) {
+    if (width <= deviceWidth && height <= deviceHeight) {
+        // 11: render 64 couleurs avec 1 palette 64 couleurs (64*3 bytes) suivis de 6 bytes par groupe de 8 points (séparés en plans de bits 6*512 bytes)
+        //
+        // Don't send the entire buffer at once. To avoid timing or buffer issues with the CP210x driver we send chunks
+        // of 256 bytes. First we wait for a (R)eady signal from ZeDMD. In between the chunks we wait for an
+        // (A)cknowledge signal that indicates that the entire chunk has been received. The (E)rror signal is ignored.
+        // We don't have time to re-start the transmission from the beginning. Instead, we skip this frame and let
+        // libpinmame provide the next frame as usual.
+        char response = 0;
+        if (device.readChar(&response, 100) && response == 'R') {
+            int planeBytes = (width * height / 8 * bitDepth);
+            int totalBytes = 6 + 1 + 192 + planeBytes + 24;
+            int chunk = 256;
+            UINT8* outputBuffer = (UINT8*) malloc(totalBytes);
+            memcpy(&outputBuffer[0], ZeDMDControlCharacters, 6);
+            outputBuffer[6] = 11;
+            memcpy(&outputBuffer[7], palette, 192);
+            memcpy(&outputBuffer[199], Buffer, planeBytes);
+            memcpy(&outputBuffer[199 + planeBytes], rotation, 24);
+
+            int bufferPosition = 0;
+            while (bufferPosition < totalBytes) {
+                device.writeBytes(&outputBuffer[bufferPosition], ((totalBytes - bufferPosition) < chunk) ? (totalBytes - bufferPosition) : chunk);
+                if (!device.readChar(&response, 100) || response != 'A') {
+                    // Something went wrong. Terminate current transmission of the buffer and return.
+                    free(outputBuffer);
+                    return;
+                }
+            }
+
+            free(outputBuffer);
         }
     }
 }

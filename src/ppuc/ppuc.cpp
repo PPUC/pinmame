@@ -19,6 +19,7 @@
 #include "zedmd/zedmd.h"
 #include "serialib/serialib.h"
 #include "cargs/cargs.h"
+#include "../../../libserum/src/serum-decode.h"
 
 typedef unsigned char UINT8;
 typedef unsigned short UINT16;
@@ -46,6 +47,8 @@ int zedmd = 0;
 YAML::Node ppuc_config;
 
 bool opt_debug = false;
+bool opt_no_serial = false;
+bool opt_serum = false;
 int game_state = 0;
 
 static struct cag_option options[] = {
@@ -71,9 +74,23 @@ static struct cag_option options[] = {
         .description = "Serial device (optional, overwrites setting in config file)"
     },
     {
+        .identifier = 'n',
+        .access_letters = "n",
+        .access_name = "no-serial",
+        .value_name = NULL,
+        .description = "No serial communication to controllers (optional)"
+    },
+    {
+        .identifier = 'u',
+        .access_letters = "u",
+        .access_name = "serum",
+        .value_name = NULL,
+        .description = "Enable Serum colorization (optional)"
+    },
+    {
         .identifier = 'd',
         .access_letters = "d",
-        .access_name = NULL,
+        .access_name = "debug",
         .value_name = NULL,
         .description = "Enable debug output (optional"
     },
@@ -87,61 +104,64 @@ static struct cag_option options[] = {
 
 
 void sendEvent(Event* event) {
-    //     = (UINT8) 255;
-    msg[1] = event->sourceId;
-    msg[2] = event->eventId >> 8;
-    msg[3] = event->eventId & 0xff;
-    msg[4] = event->value;
-    //     = (UINT8) 255;
+    if (!opt_no_serial) {
+        //     = (UINT8) 255;
+        msg[1] = event->sourceId;
+        msg[2] = event->eventId >> 8;
+        msg[3] = event->eventId & 0xff;
+        msg[4] = event->value;
+        //     = (UINT8) 255;
 
-    if (serial.writeBytes(msg, 6)) {
-        if (opt_debug) printf("Sent event %d %d %d.\n", event->sourceId, event->eventId, event->value);
+        if (serial.writeBytes(msg, 6)) {
+            if (opt_debug) printf("Sent event %d %d %d.\n", event->sourceId, event->eventId, event->value);
+        } else {
+            printf("Error: Could not send event %d %d %d.\n", event->sourceId, event->eventId, event->value);
+        }
     }
-    else {
-        printf("Error: Could not send event %d %d %d.\n", event->sourceId, event->eventId, event->value);
-    }
-
     // delete the event and free the memory
     delete event;
 }
 
 void sendEvent(ConfigEvent* event) {
-    //      = (UINT8) 255;
-    cmsg[1] = event->sourceId;
-    cmsg[2] = event->boardId;
-    cmsg[3] = event->topic;
-    cmsg[4] = event->key;
-    cmsg[5] = event->index;
-    cmsg[6] = event->value >> 24;
-    cmsg[7] = (event->value >> 16) & 0xff;
-    cmsg[8] = (event->value >> 8) & 0xff;
-    cmsg[9] = event->value & 0xff;
-    //      = (UINT8) 255;
+    if (!opt_no_serial) {
+        //      = (UINT8) 255;
+        cmsg[1] = event->sourceId;
+        cmsg[2] = event->boardId;
+        cmsg[3] = event->topic;
+        cmsg[4] = event->key;
+        cmsg[5] = event->index;
+        cmsg[6] = event->value >> 24;
+        cmsg[7] = (event->value >> 16) & 0xff;
+        cmsg[8] = (event->value >> 8) & 0xff;
+        cmsg[9] = event->value & 0xff;
+        //      = (UINT8) 255;
 
-    if (serial.writeBytes(cmsg, 11)) {
-        if (opt_debug) printf("Sent config event %d %d %d.\n", event->boardId, event->topic, event->key);
+        if (serial.writeBytes(cmsg, 11)) {
+            if (opt_debug) printf("Sent config event %d %d %d.\n", event->boardId, event->topic, event->key);
+        } else {
+            printf("Error: Could not send event %d %d %d.\n", event->boardId, event->topic, event->key);
+        }
     }
-    else {
-        printf("Error: Could not send event %d %d %d.\n", event->boardId, event->topic, event->key);
-    }
-
     // delete the event and free the memory
     delete event;
 }
 
 Event* receiveEvent() {
-    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+    if (!opt_no_serial) {
+        std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
 
-    // Set a timeout of 1ms when waiting for an I/O board event.
-    while ((std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start)).count() < 1000) {
-        if (serial.available() >= 6) {
-            UINT8 poll[6] = {0};
-            if (serial.readBytes(poll, 6)) {
-                if (poll[0] == 255 && poll[5] == 255) {
-                    return new Event(poll[1], (((UINT16) poll[2]) << 8) + poll[3], poll[4]);
+        // Set a timeout of 1ms when waiting for an I/O board event.
+        while ((std::chrono::duration_cast<std::chrono::microseconds>(
+                std::chrono::steady_clock::now() - start)).count() < 1000) {
+            if (serial.available() >= 6) {
+                UINT8 poll[6] = {0};
+                if (serial.readBytes(poll, 6)) {
+                    if (poll[0] == 255 && poll[5] == 255) {
+                        return new Event(poll[1], (((UINT16) poll[2]) << 8) + poll[3], poll[4]);
+                    }
                 }
+                return NULL;
             }
-            return NULL;
         }
     }
 
@@ -202,23 +222,41 @@ void CALLBACK OnDisplayUpdated(int index, void* p_displayData, PinmameDisplayLay
                           p_displayLayout->length);
 
     if ((p_displayLayout->type & DMD) == DMD) {
-        UINT8* buffer = (UINT8 *) dmdRender(p_displayLayout->width, p_displayLayout->height,
-                                            (UINT8 *) p_displayData,p_displayLayout->depth,
-                                            PinmameGetHardwareGen() & (SAM | SPA));
+        if (pin2dmd > 0 || (zedmd > 0 && !opt_serum)) {
+            UINT8 *planes = (UINT8 *) dmdRenderPlanes(p_displayLayout->width, p_displayLayout->height,
+                                                     (UINT8 *) p_displayData, p_displayLayout->depth,
+                                                     PinmameGetHardwareGen() & (SAM | SPA));
 
-        std::vector<std::thread> threads;
+            std::vector <std::thread> threads;
 
-        if (pin2dmd > 0) {
-            threads.push_back(std::thread(Pin2dmdRender, p_displayLayout->width, p_displayLayout->height, buffer,
-                                          p_displayLayout->depth, PinmameGetHardwareGen() & (SAM | SPA)));
+            if (pin2dmd > 0) {
+                threads.push_back(std::thread(Pin2dmdRender, p_displayLayout->width, p_displayLayout->height, planes,
+                                              p_displayLayout->depth, PinmameGetHardwareGen() & (SAM | SPA)));
+            }
+            if (zedmd > 0 && !opt_serum) {
+                threads.push_back(std::thread(ZeDmdRender, p_displayLayout->width, p_displayLayout->height, planes,
+                                              p_displayLayout->depth, PinmameGetHardwareGen() & (SAM | SPA)));
+            }
+
+            for (auto &th: threads) {
+                th.join();
+            }
         }
-        if (zedmd > 0) {
-            threads.push_back(std::thread(ZeDmdRender, p_displayLayout->width, p_displayLayout->height, buffer,
-                                          p_displayLayout->depth, PinmameGetHardwareGen() & (SAM | SPA)));
-        }
 
-        for (auto &th : threads) {
-            th.join();
+        if (zedmd > 0 && opt_serum) {
+            UINT8 *buffer = (UINT8 *) dmdConvertToFrame(p_displayLayout->width, p_displayLayout->height,
+                                                        (UINT8 *) p_displayData, p_displayLayout->depth,
+                                                        PinmameGetHardwareGen() & (SAM | SPA));
+
+            UINT8 palette[192] = {0};
+            UINT8 rotations[24] = {0};
+            Serum_Colorize(buffer, p_displayLayout->width, p_displayLayout->height,
+                           &palette[0], &rotations[0]);
+
+            UINT8 *planes = (UINT8 *) dmdConvertFrameToPlanes(p_displayLayout->width, p_displayLayout->height, buffer,
+                                                              p_displayLayout->depth);
+            ZeDmdRenderSerum(p_displayLayout->width, p_displayLayout->height, planes, p_displayLayout->depth,
+                             &palette[0], &rotations[0]);
         }
     }
     else {
@@ -365,6 +403,12 @@ int main (int argc, char *argv[]) {
             case 's':
                 opt_serial = cag_option_get_value(&cag_context);
                 break;
+            case 'n':
+                opt_no_serial = true;
+                break;
+            case 'u':
+                opt_serum = true;
+                break;
             case 'd':
                 opt_debug = true;
                 break;
@@ -391,29 +435,73 @@ int main (int argc, char *argv[]) {
     std::string c_serial = ppuc_config["serialPort"].as<std::string>();
     if (!opt_serial) opt_serial = c_serial.c_str();
 
+    PinmameConfig config = {
+            AUDIO_FORMAT_INT16,
+            44100,
+            "",
+            &OnStateUpdated,
+            &OnDisplayAvailable,
+            &OnDisplayUpdated,
+            &OnAudioAvailable,
+            &OnAudioUpdated,
+            &OnMechAvailable,
+            &OnMechUpdated,
+            &OnSolenoidUpdated,
+            &OnConsoleDataUpdated,
+            &IsKeyPressed,
+    };
+
+#if defined(_WIN32) || defined(_WIN64)
+    snprintf((char*)config.vpmPath, MAX_PATH, "%s%s\\pinmame\\", getenv("HOMEDRIVE"), getenv("HOMEPATH"));
+#else
+    snprintf((char*)config.vpmPath, MAX_PATH, "%s/.pinmame/", getenv("HOME"));
+#endif
+
+    if (opt_serum) {
+        int pwidth;
+        int pheight;
+        unsigned int pnocolors;
+
+        char tbuf[1024];
+        strcpy(tbuf, config.vpmPath);
+        if ((tbuf[strlen(tbuf) - 1] != '\\') && (tbuf[strlen(tbuf) - 1] != '/')) strcat(tbuf, "/");
+        strcat(tbuf, "altcolor");
+
+        bool serum_loaded = Serum_Load(tbuf, opt_rom, &pwidth, &pheight, &pnocolors);
+        if (serum_loaded) {
+            if (opt_debug) printf("Serum: loaded %s.cRZ.\n", opt_rom);
+        }
+        else {
+            if (opt_debug) printf("Serum: %s.cRZ not found.\n", opt_rom);
+            opt_serum = false;
+        }
+    }
+
     // Initialize displays.
     pin2dmd = Pin2dmdInit();
     if (opt_debug) printf("PIN2DMD: %d\n", pin2dmd);
     zedmd = ZeDmdInit(opt_serial);
     if (opt_debug) printf("ZeDMD: %d\n", zedmd);
 
-    // Connection to serial port.
-    char errorOpening = serial.openDevice(opt_serial, 115200);
-    // If connection fails, return the error code otherwise, display a success message
-    if (errorOpening != 1) {
-        printf("Unable to open serial device: %s\n", opt_serial);
-        return errorOpening;
+    if (!opt_no_serial) {
+        // Connection to serial port.
+        char errorOpening = serial.openDevice(opt_serial, 115200);
+        // If connection fails, return the error code otherwise, display a success message
+        if (errorOpening != 1) {
+            printf("Unable to open serial device: %s\n", opt_serial);
+            return errorOpening;
+        }
+
+        // Disable DTR, otherwise Arduino will reset permanently.
+        serial.clearDTR();
+        msg[0] = (UINT8) 255;
+        msg[5] = (UINT8) 255;
+        cmsg[0] = (UINT8) 255;
+        cmsg[10] = (UINT8) 255;
+
+        // Wait for the serial communication to be established before continuing.
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     }
-
-    // Disable DTR, otherwise Arduino will reset permanently.
-    serial.clearDTR();
-    msg[0] = (UINT8) 255;
-    msg[5] = (UINT8) 255;
-    cmsg[0] = (UINT8) 255;
-    cmsg[10] = (UINT8) 255;
-
-    // Wait for the serial communication to be established before continuing.
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
     const YAML::Node& boards = ppuc_config["boards"];
     for (YAML::Node n_board : boards) {
@@ -532,28 +620,6 @@ int main (int argc, char *argv[]) {
     alcMakeContextCurrent(context);
     alGenSources((ALuint) 1, &_audioSource);
     alGenBuffers(MAX_AUDIO_BUFFERS, _audioBuffers);
-
-    PinmameConfig config = {
-            AUDIO_FORMAT_INT16,
-            44100,
-            "",
-            &OnStateUpdated,
-            &OnDisplayAvailable,
-            &OnDisplayUpdated,
-            &OnAudioAvailable,
-            &OnAudioUpdated,
-            &OnMechAvailable,
-            &OnMechUpdated,
-            &OnSolenoidUpdated,
-            &OnConsoleDataUpdated,
-            &IsKeyPressed,
-    };
-
-#if defined(_WIN32) || defined(_WIN64)
-    snprintf((char*)config.vpmPath, MAX_PATH, "%s%s\\pinmame\\", getenv("HOMEDRIVE"), getenv("HOMEPATH"));
-#else
-    snprintf((char*)config.vpmPath, MAX_PATH, "%s/.pinmame/", getenv("HOME"));
-#endif
 
     PinmameSetConfig(&config);
 

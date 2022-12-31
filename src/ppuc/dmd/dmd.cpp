@@ -1,7 +1,7 @@
 #include "dmd.h"
 
 UINT8 DmdFrameBuffer[16384] = {0};
-UINT8 DmdPlanesBuffer[4][4096] = {0};
+UINT8 DmdPlanesBuffer[12288] = {0};
 
 void* dmdConvertToFrame(UINT16 width, UINT16 height, UINT8* Buffer, int bitDepth, bool samSpa) {
     int buffer_size = width * height;
@@ -135,24 +135,28 @@ void* dmdConvertToFrame(UINT16 width, UINT16 height, UINT8* Buffer, int bitDepth
 void* dmdConvertFrameToPlanes(UINT16 width, UINT16 height, UINT8* Buffer, int bitDepth) {
     UINT8 bitMask = 1;
     UINT32 tj = 0;
+    const UINT32 frameSize = height * width;
+    const UINT32 planeOffset = frameSize / 8;
 
     for (UINT8 tk = 0; tk < bitDepth; tk++) {
-        DmdPlanesBuffer[tk][tj] = 0;
+        DmdPlanesBuffer[tk * planeOffset + tj] = 0;
     }
 
-    for (UINT32 ti = 0; ti < width * height; ti++) {
+    for (UINT32 ti = 0; ti < frameSize; ti++) {
         UINT8 tl = 1;
         for (UINT8 tk = 0; tk < bitDepth; tk++) {
-            if ((Buffer[ti] & tl) > 0) DmdPlanesBuffer[tk][tj] |= bitMask;
+            if ((Buffer[ti] & tl) > 0) {
+                DmdPlanesBuffer[tk * planeOffset + tj] |= bitMask;
+            }
             tl <<= 1;
         }
 
         if (bitMask == 0x80) {
             bitMask = 1;
             tj++;
-            if (tj < width * height / 8) {
+            if (tj < planeOffset) {
                 for (UINT8 tk = 0; tk < bitDepth; tk++) {
-                    DmdPlanesBuffer[tk][tj] = 0;
+                    DmdPlanesBuffer[tk * planeOffset + tj] = 0;
                 }
             }
         }

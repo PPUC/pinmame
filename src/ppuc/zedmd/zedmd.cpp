@@ -45,7 +45,7 @@ int ZeDmdInit(const char* ignore_device) {
         if (strcmp(device_name, ignore_device) == 0) {
             continue;
         }
-        printf("Result %d\n", device.openDevice(device_name, 921600));
+
         // Try to connect to the device.
         if (device.openDevice(device_name, 921600) == 1) {
             //printf("Device %s\n", device_name);
@@ -141,7 +141,7 @@ void ZeDmdRender(UINT16 width, UINT16 height, UINT8* Buffer, int bitDepth, bool 
     }
 }
 
-void ZeDmdRenderSerum(UINT16 width, UINT16 height, UINT8* Buffer, int bitDepth, UINT8* palette, UINT8* rotation) {
+void ZeDmdRenderSerum(UINT16 width, UINT16 height, UINT8* Buffer, UINT8* palette, UINT8* rotation) {
     if (width <= deviceWidth && height <= deviceHeight) {
         // 11: render 64 couleurs avec 1 palette 64 couleurs (64*3 bytes) suivis de 6 bytes par groupe de 8 points (séparés en plans de bits 6*512 bytes)
         //
@@ -152,7 +152,7 @@ void ZeDmdRenderSerum(UINT16 width, UINT16 height, UINT8* Buffer, int bitDepth, 
         // libpinmame provide the next frame as usual.
         char response = 0;
         if (device.readChar(&response, 100) && response == 'R') {
-            int planeBytes = (width * height / 8 * bitDepth);
+            int planeBytes = (width * height / 8 * 6);
             int totalBytes = 6 + 1 + 192 + planeBytes + 24;
             int chunk = 256;
             UINT8* outputBuffer = (UINT8*) malloc(totalBytes);

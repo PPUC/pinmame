@@ -233,7 +233,7 @@ void CALLBACK OnDisplayUpdated(int index, void* p_displayData, PinmameDisplayLay
                 threads.push_back(std::thread(Pin2dmdRender, p_displayLayout->width, p_displayLayout->height, planes,
                                               p_displayLayout->depth, PinmameGetHardwareGen() & (SAM | SPA)));
             }
-            if (zedmd > 0 && !opt_serum) {
+            if (zedmd > 0) {
                 threads.push_back(std::thread(ZeDmdRender, p_displayLayout->width, p_displayLayout->height, planes,
                                               p_displayLayout->depth, PinmameGetHardwareGen() & (SAM | SPA)));
             }
@@ -253,10 +253,19 @@ void CALLBACK OnDisplayUpdated(int index, void* p_displayData, PinmameDisplayLay
             Serum_Colorize(buffer, p_displayLayout->width, p_displayLayout->height,
                            &palette[0], &rotations[0]);
 
-            UINT8 *planes = (UINT8 *) dmdConvertFrameToPlanes(p_displayLayout->width, p_displayLayout->height, buffer,
-                                                              p_displayLayout->depth);
-            ZeDmdRenderSerum(p_displayLayout->width, p_displayLayout->height, planes, p_displayLayout->depth,
-                             &palette[0], &rotations[0]);
+            UINT8 *planes = (UINT8 *) dmdConvertFrameToPlanes(p_displayLayout->width,
+                                                              p_displayLayout->height, buffer,6);
+            ZeDmdRenderSerum(p_displayLayout->width, p_displayLayout->height, planes, &palette[0], &rotations[0]);
+
+            if (opt_debug) {
+                for (int y = 0; y < p_displayLayout->height; y++) {
+                    for (int x = 0; x < p_displayLayout->width; x++) {
+                        UINT8 value = buffer[y * p_displayLayout->width + x];
+                        printf("%2d", value);
+                    }
+                    printf("\n");
+                }
+            }
         }
     }
     else {

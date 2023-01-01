@@ -49,6 +49,7 @@ YAML::Node ppuc_config;
 bool opt_debug = false;
 bool opt_no_serial = false;
 bool opt_serum = false;
+bool opt_console_display = false;
 int game_state = 0;
 
 static struct cag_option options[] = {
@@ -88,11 +89,18 @@ static struct cag_option options[] = {
         .description = "Enable Serum colorization (optional)"
     },
     {
+        .identifier = 'i',
+        .access_letters = "i",
+        .access_name = "console-display",
+        .value_name = NULL,
+        .description = "Enable console display (optional)"
+    },
+    {
         .identifier = 'd',
         .access_letters = "d",
         .access_name = "debug",
         .value_name = NULL,
-        .description = "Enable debug output (optional"
+        .description = "Enable debug output (optional)"
     },
     {
         .identifier = 'h',
@@ -257,7 +265,7 @@ void CALLBACK OnDisplayUpdated(int index, void* p_displayData, PinmameDisplayLay
                                                               p_displayLayout->height, buffer,6);
             ZeDmdRenderSerum(p_displayLayout->width, p_displayLayout->height, planes, &palette[0], &rotations[0]);
 
-            if (opt_debug) {
+            if (opt_console_display) {
                 for (int y = 0; y < p_displayLayout->height; y++) {
                     for (int x = 0; x < p_displayLayout->width; x++) {
                         UINT8 value = buffer[y * p_displayLayout->width + x];
@@ -265,6 +273,7 @@ void CALLBACK OnDisplayUpdated(int index, void* p_displayData, PinmameDisplayLay
                     }
                     printf("\n");
                 }
+                if (!opt_debug) printf("\033[%dA", p_displayLayout->height);
             }
         }
     }
@@ -417,6 +426,9 @@ int main (int argc, char *argv[]) {
                 break;
             case 'u':
                 opt_serum = true;
+                break;
+            case 'i':
+                opt_console_display = true;
                 break;
             case 'd':
                 opt_debug = true;

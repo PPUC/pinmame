@@ -165,7 +165,10 @@ void ZeDmdRenderSerum(UINT16 width, UINT16 height, UINT8* Buffer, UINT8* palette
             int bufferPosition = 0;
             while (bufferPosition < totalBytes) {
                 device.writeBytes(&outputBuffer[bufferPosition], ((totalBytes - bufferPosition) < chunk) ? (totalBytes - bufferPosition) : chunk);
-                if (!device.readChar(&response, 100) || response != 'A') {
+                if (device.readChar(&response, 100) && response == 'A') {
+                    // Received (A)cknowledge, ready to send the next chunk.
+                    bufferPosition += chunk;
+                } else {
                     // Something went wrong. Terminate current transmission of the buffer and return.
                     free(outputBuffer);
                     return;

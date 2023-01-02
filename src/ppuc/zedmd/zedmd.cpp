@@ -92,7 +92,7 @@ int ZeDmdInit(const char* ignore_device) {
     return 0;
 }
 
-void ZeDmdRender(UINT16 width, UINT16 height, UINT8* Buffer, int bitDepth, bool samSpa) {
+void ZeDmdRender(UINT16 width, UINT16 height, UINT8* Buffer, int bitDepth) {
     if (width <= deviceWidth && height <= deviceHeight) {
         // To send a 4-color frame, send {0x5a, 0x65, 0x64, 0x72, 0x75, 0x6d, 8} followed by 3 * 4 bytes for the palette
         // (R, G, B) followed by 2 planes of width * height / 8 bytes for the frame. It is possible to send a colored

@@ -6,7 +6,5 @@ typedef unsigned short UINT16;
 typedef unsigned int UINT32;
 
 void* dmdConvertToFrame(UINT16 width, UINT16 height, UINT8* Buffer, int bitDepth, bool samSPa);
-void* dmdConvertFrameToPlanes(UINT16 width, UINT16 height, UINT8* Buffer, int bitDepth);
-void* dmdRenderPlanes(UINT16 width, UINT16 height, UINT8* Buffer, int bitDepth, bool samSPa);
 
 #endif /* DMD_H */

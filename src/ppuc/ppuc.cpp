@@ -44,6 +44,12 @@ serialib serial;
 int pin2dmd = 0;
 int zedmd = 0;
 
+UINT8 previousDisplayBuffer[16384] = {0};
+void* p_previousDisplayBuffer = &previousDisplayBuffer[0];
+UINT16 serum_skip_frames = 0;
+UINT16 serum_skip_frames_left = 0;
+UINT8 DmdPlanesBuffer[12288] = {0};
+
 YAML::Node ppuc_config;
 
 bool opt_debug = false;
@@ -87,6 +93,20 @@ static struct cag_option options[] = {
         .access_name = "serum",
         .value_name = NULL,
         .description = "Enable Serum colorization (optional)"
+    },
+    {
+        .identifier = 't',
+        .access_letters = "t",
+        .access_name = "serum-timeout",
+        .value_name = "VALUE",
+        .description = "Serum timeout in milliseconds to ignore unknown frames (optional)"
+    },
+    {
+        .identifier = 'p',
+        .access_letters = "p",
+        .access_name = "serum-skip-frames",
+        .value_name = "VALUE",
+        .description = "Serum ignore number of unknown frames (optional)"
     },
     {
         .identifier = 'i',
@@ -230,20 +250,35 @@ void CALLBACK OnDisplayUpdated(int index, void* p_displayData, PinmameDisplayLay
                           p_displayLayout->length);
 
     if ((p_displayLayout->type & DMD) == DMD) {
+        UINT8 *buffer = (UINT8 *) dmdConvertToFrame(p_displayLayout->width, p_displayLayout->height,
+                                                    (UINT8 *) p_displayData, p_displayLayout->depth,
+                                                    PinmameGetHardwareGen() & (SAM | SPA));
+
+        if (opt_console_display) {
+            for (int y = 0; y < p_displayLayout->height; y++) {
+                for (int x = 0; x < p_displayLayout->width; x++) {
+                    UINT8 value = ((UINT8*) buffer)[y * p_displayLayout->width + x];
+                    printf("%2d", value);
+                }
+                printf("\n");
+            }
+            if (!opt_debug) printf("\033[%dA", p_displayLayout->height);
+        }
+
         if (pin2dmd > 0 || (zedmd > 0 && !opt_serum)) {
-            UINT8 *planes = (UINT8 *) dmdRenderPlanes(p_displayLayout->width, p_displayLayout->height,
-                                                     (UINT8 *) p_displayData, p_displayLayout->depth,
-                                                     PinmameGetHardwareGen() & (SAM | SPA));
+            Serum_ConvertFrameToPlanes(p_displayLayout->width, p_displayLayout->height, buffer,
+                                       DmdPlanesBuffer, p_displayLayout->depth);
 
             std::vector <std::thread> threads;
 
             if (pin2dmd > 0) {
-                threads.push_back(std::thread(Pin2dmdRender, p_displayLayout->width, p_displayLayout->height, planes,
-                                              p_displayLayout->depth, PinmameGetHardwareGen() & (SAM | SPA)));
+                threads.push_back(std::thread(Pin2dmdRender, p_displayLayout->width, p_displayLayout->height,
+                                              DmdPlanesBuffer, p_displayLayout->depth,
+                                              PinmameGetHardwareGen() & (SAM | SPA)));
             }
             if (zedmd > 0) {
-                threads.push_back(std::thread(ZeDmdRender, p_displayLayout->width, p_displayLayout->height, planes,
-                                              p_displayLayout->depth, PinmameGetHardwareGen() & (SAM | SPA)));
+                threads.push_back(std::thread(ZeDmdRender, p_displayLayout->width, p_displayLayout->height,
+                                              DmdPlanesBuffer, p_displayLayout->depth));
             }
 
             for (auto &th: threads) {
@@ -252,28 +287,33 @@ void CALLBACK OnDisplayUpdated(int index, void* p_displayData, PinmameDisplayLay
         }
 
         if (zedmd > 0 && opt_serum) {
-            UINT8 *buffer = (UINT8 *) dmdConvertToFrame(p_displayLayout->width, p_displayLayout->height,
-                                                        (UINT8 *) p_displayData, p_displayLayout->depth,
-                                                        PinmameGetHardwareGen() & (SAM | SPA));
-
             UINT8 palette[192] = {0};
             UINT8 rotations[24] = {0};
-            Serum_Colorize(buffer, p_displayLayout->width, p_displayLayout->height,
-                           &palette[0], &rotations[0]);
+            if (Serum_Colorize(buffer, p_displayLayout->width, p_displayLayout->height,
+                           &palette[0], &rotations[0])) {
 
-            UINT8 *planes = (UINT8 *) dmdConvertFrameToPlanes(p_displayLayout->width,
-                                                              p_displayLayout->height, buffer,6);
-            ZeDmdRenderSerum(p_displayLayout->width, p_displayLayout->height, planes, &palette[0], &rotations[0]);
-
-            if (opt_console_display) {
-                for (int y = 0; y < p_displayLayout->height; y++) {
-                    for (int x = 0; x < p_displayLayout->width; x++) {
-                        UINT8 value = buffer[y * p_displayLayout->width + x];
-                        printf("%2d", value);
-                    }
-                    printf("\n");
+                if (!memcmp(p_previousDisplayBuffer, buffer, p_displayLayout->width * p_displayLayout->height)) {
+                    return;
                 }
-                if (!opt_debug) printf("\033[%dA", p_displayLayout->height);
+                else {
+                    memcpy(p_previousDisplayBuffer, buffer, p_displayLayout->width * p_displayLayout->height);
+                }
+
+                Serum_ConvertFrameToPlanes(p_displayLayout->width, p_displayLayout->height, buffer,
+                                           DmdPlanesBuffer, 6);
+                ZeDmdRenderSerum(p_displayLayout->width, p_displayLayout->height, DmdPlanesBuffer,
+                                 &palette[0], &rotations[0]);
+
+                serum_skip_frames_left = serum_skip_frames;
+            }
+            else if(serum_skip_frames_left < 1) {
+                Serum_ConvertFrameToPlanes(p_displayLayout->width, p_displayLayout->height, buffer,
+                                           DmdPlanesBuffer, p_displayLayout->depth);
+                ZeDmdRender(p_displayLayout->width, p_displayLayout->height, DmdPlanesBuffer,
+                            p_displayLayout->depth);
+            }
+            else {
+                serum_skip_frames_left--;
             }
         }
     }
@@ -405,6 +445,8 @@ int main (int argc, char *argv[]) {
     const char *config_file = NULL;
     const char *opt_rom = NULL;
     const char *opt_serial = NULL;
+    const char *opt_serum_timeout = NULL;
+    const char *opt_serum_skip_frames = NULL;
     UINT8 boardsToPoll[MAX_IO_BOARDS];
     UINT8 numBoardsToPoll = 0;
 
@@ -426,6 +468,12 @@ int main (int argc, char *argv[]) {
                 break;
             case 'u':
                 opt_serum = true;
+                break;
+            case 't':
+                opt_serum_timeout = cag_option_get_value(&cag_context);
+                break;
+            case 'p':
+                opt_serum_skip_frames = cag_option_get_value(&cag_context);
                 break;
             case 'i':
                 opt_console_display = true;
@@ -491,6 +539,20 @@ int main (int argc, char *argv[]) {
         bool serum_loaded = Serum_Load(tbuf, opt_rom, &pwidth, &pheight, &pnocolors);
         if (serum_loaded) {
             if (opt_debug) printf("Serum: loaded %s.cRZ.\n", opt_rom);
+
+            if (opt_serum_timeout) {
+                UINT16 serum_timeout;
+                std::stringstream st(opt_serum_timeout);
+                st >> serum_timeout;
+                Serum_SetIgnoreUnknownFramesTimeout(serum_timeout);
+                printf("TIMEOUT %d\n", serum_timeout);
+            }
+
+            if (opt_serum_skip_frames) {
+                std::stringstream ssf(opt_serum_skip_frames);
+                ssf >> serum_skip_frames;
+                printf("SKIP %d\n", serum_skip_frames);
+            }
         }
         else {
             if (opt_debug) printf("Serum: %s.cRZ not found.\n", opt_rom);

@@ -6,7 +6,7 @@ typedef unsigned short UINT16;
 typedef unsigned int UINT32;
 
 int ZeDmdInit(const char* ignore_device);
-void ZeDmdRender(UINT16 width, UINT16 height, UINT8* Buffer, int bitDepth, bool samSPa);
+void ZeDmdRender(UINT16 width, UINT16 height, UINT8* Buffer, int bitDepth);
 void ZeDmdRenderSerum(UINT16 width, UINT16 height, UINT8* Buffer, UINT8* palette, UINT8* rotation);
 
 #endif /* ZEDMD_H */

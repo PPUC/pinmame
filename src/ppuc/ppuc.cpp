@@ -19,7 +19,10 @@
 #include "zedmd/zedmd.h"
 #include "serialib/serialib.h"
 #include "cargs/cargs.h"
-#include "../../../libserum/src/serum-decode.h"
+#include "dmdcommon/dmdcommon.h"
+#if defined(SERUM_SUPPORT)
+    #include "serum/serum-decode.h"
+#endif
 
 typedef unsigned char UINT8;
 typedef unsigned short UINT16;
@@ -87,6 +90,7 @@ static struct cag_option options[] = {
         .value_name = NULL,
         .description = "No serial communication to controllers (optional)"
     },
+#if defined(SERUM_SUPPORT)
     {
         .identifier = 'u',
         .access_letters = "u",
@@ -108,6 +112,7 @@ static struct cag_option options[] = {
         .value_name = "VALUE",
         .description = "Serum ignore number of unknown frames (optional)"
     },
+#endif
     {
         .identifier = 'i',
         .access_letters = "i",
@@ -266,7 +271,7 @@ void CALLBACK OnDisplayUpdated(int index, void* p_displayData, PinmameDisplayLay
         }
 
         if (pin2dmd > 0 || (zedmd > 0 && !opt_serum)) {
-            Serum_ConvertFrameToPlanes(p_displayLayout->width, p_displayLayout->height, buffer,
+            DmdCommon_ConvertFrameToPlanes(p_displayLayout->width, p_displayLayout->height, buffer,
                                        DmdPlanesBuffer, p_displayLayout->depth);
 
             std::vector <std::thread> threads;
@@ -286,6 +291,7 @@ void CALLBACK OnDisplayUpdated(int index, void* p_displayData, PinmameDisplayLay
             }
         }
 
+#if defined(SERUM_SUPPORT)
         if (zedmd > 0 && opt_serum) {
             UINT8 palette[192] = {0};
             UINT8 rotations[24] = {0};
@@ -299,7 +305,7 @@ void CALLBACK OnDisplayUpdated(int index, void* p_displayData, PinmameDisplayLay
                     memcpy(p_previousDisplayBuffer, buffer, p_displayLayout->width * p_displayLayout->height);
                 }
 
-                Serum_ConvertFrameToPlanes(p_displayLayout->width, p_displayLayout->height, buffer,
+                DmdCommon_ConvertFrameToPlanes(p_displayLayout->width, p_displayLayout->height, buffer,
                                            DmdPlanesBuffer, 6);
                 ZeDmdRenderSerum(p_displayLayout->width, p_displayLayout->height, DmdPlanesBuffer,
                                  &palette[0], &rotations[0]);
@@ -316,6 +322,7 @@ void CALLBACK OnDisplayUpdated(int index, void* p_displayData, PinmameDisplayLay
                 serum_skip_frames_left--;
             }
         }
+#endif
     }
     else {
         // todo
@@ -445,8 +452,10 @@ int main (int argc, char *argv[]) {
     const char *config_file = NULL;
     const char *opt_rom = NULL;
     const char *opt_serial = NULL;
+#if defined(SERUM_SUPPORT)
     const char *opt_serum_timeout = NULL;
     const char *opt_serum_skip_frames = NULL;
+#endif
     UINT8 boardsToPoll[MAX_IO_BOARDS];
     UINT8 numBoardsToPoll = 0;
 
@@ -466,6 +475,7 @@ int main (int argc, char *argv[]) {
             case 'n':
                 opt_no_serial = true;
                 break;
+#if defined(SERUM_SUPPORT)
             case 'u':
                 opt_serum = true;
                 break;
@@ -475,6 +485,7 @@ int main (int argc, char *argv[]) {
             case 'p':
                 opt_serum_skip_frames = cag_option_get_value(&cag_context);
                 break;
+#endif
             case 'i':
                 opt_console_display = true;
                 break;
@@ -526,6 +537,7 @@ int main (int argc, char *argv[]) {
     snprintf((char*)config.vpmPath, MAX_PATH, "%s/.pinmame/", getenv("HOME"));
 #endif
 
+#if defined(SERUM_SUPPORT)
     if (opt_serum) {
         int pwidth;
         int pheight;
@@ -559,6 +571,7 @@ int main (int argc, char *argv[]) {
             opt_serum = false;
         }
     }
+#endif
 
     // Initialize displays.
     pin2dmd = Pin2dmdInit();

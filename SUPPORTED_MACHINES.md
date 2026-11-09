@@ -29,12 +29,12 @@ onwards** is listed separately below as not expected rather than as missing.
 
 | Status                           | Machines | Share |
 | -------------------------------- | -------: | ----: |
-| Fully working                    |      571 | 68.6% |
+| Fully working                    |      571 | 68.4% |
 | Partially working                |       34 |  4.1% |
 | Emulated but not working         |        1 |  0.1% |
-| Not emulated                     |       97 | 11.7% |
-| Not emulated — released recently |      129 | 15.5% |
-| **Total**                        |  **832** |       |
+| Not emulated                     |       97 | 11.6% |
+| Not emulated — released recently |      132 | 15.8% |
+| **Total**                        |  **835** |       |
 
 ### By decade
 
@@ -45,7 +45,7 @@ onwards** is listed separately below as not expected rather than as missing.
 | 1990s  |   148 |           142 |       3 |           0 |            3 |
 | 2000s  |    25 |            24 |       0 |           0 |            1 |
 | 2010s  |    73 |            18 |       0 |           0 |           55 |
-| 2020s  |    88 |             0 |       0 |           0 |           88 |
+| 2020s  |    91 |             0 |       0 |           0 |           91 |
 
 ## Fully working (571)
 
@@ -783,7 +783,7 @@ future work.
 | Wrath of Olympus                            | 2015 | Riot Pinball              | DMD          |
 | WrestleMania                                | 2015 | Stern                     | DMD          |
 
-## Not emulated — released recently (129)
+## Not emulated — released recently (132)
 
 No driver, and not expected to get one soon: see the note on end-of-life machines above.
 
@@ -907,11 +907,14 @@ No driver, and not expected to get one soon: see the note on end-of-life machine
 | Star Wars: Fall of the Empire                     | 2025 | Stern                    | LCD          |
 | The Walking Dead Remastered                       | 2025 | Stern                    | LCD          |
 | Winchester Mystery House                          | 2025 | Barrels of Fun           | LCD          |
+| AC/DC Remastered                                  | 2026 | Stern                    | LCD          |
 | Bon Jovi                                          | 2026 | Barrels of Fun           | LCD          |
 | Carni-Ball Night                                  | 2026 | Deluxia Studios          | LCD          |
 | Dungeon Crawler Carl                              | 2026 | Multimorphic             | LCD          |
 | Ender's Game                                      | 2026 | Multimorphic             | LCD          |
 | Fallout                                           | 2026 | Stern                    | LCD          |
+| Lost in Space                                     | 2026 | Vector Pinball           | Alphanumeric |
+| Ned Kelly                                         | 2026 | Vector Pinball           | Alphanumeric |
 | Pokémon                                           | 2026 | Stern                    | LCD          |
 | Sonic the Hedgehog                                | 2026 | Jersey Jack Pinball      | LCD          |
 | Teenage Mutant Ninja Turtles: Battle in the Sewer | 2026 | Wonderland Amusements    | LCD          |
@@ -1146,8 +1149,8 @@ scripts/gen_supported_machines.py
 
 The script reads a cached copy of OPDB and re-downloads only with `--refresh`; `--check`
 fails if this file is out of date. Machine data comes from the OPDB snapshot of
-**2026-11-02**; driver data from `src/wpc` at the commit this file was generated from, on
-**2026-11-02**.
+**2026-11-09**; driver data from `src/wpc` at the commit this file was generated from, on
+**2026-11-09**.
 
 A machine is one OPDB *group*, so a title and its remakes are one row, dated and credited
 to the original. Its status is that of the *worst* of its ROM sets, so "fully working"
